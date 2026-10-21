@@ -1,0 +1,10 @@
+deepseek.local.json
+.env
+.env.*
+.git
+.vscode
+node_modules
+*.zip
+*.cmd
+*.url
+本草有迹Demo.html

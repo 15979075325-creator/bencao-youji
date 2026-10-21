@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: bencao-youji
+    runtime: node
+    buildCommand: npm run build:cloud
+    startCommand: npm run start:cloud
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_MODEL
+        value: deepseek-flash
+      - key: AI_DAILY_LIMIT
+        value: "100"
+      - key: AI_MINUTE_LIMIT
+        value: "10"

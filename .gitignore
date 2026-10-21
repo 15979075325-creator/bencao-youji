@@ -1,0 +1,7 @@
+deepseek.local.json
+.env
+.env.*
+node_modules
+.git
+book-v12.pdf
+*.zip

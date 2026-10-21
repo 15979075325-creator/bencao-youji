@@ -1,0 +1,15 @@
+{
+  "name": "bencao-journey-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本草有迹：从一页古籍到一株草木的互动寻访",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check data.js && node --check app.js && node --check server.js",
+    "start:cloud": "node server.js",
+    "build:cloud": "node build-cloud.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
