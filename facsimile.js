@@ -39,7 +39,7 @@ const facsimile=(()=>{
     '紫草':{start:84,end:86,location:'扫描第84页左叶开始“紫草”，第85页接续，第86页仍有相关内容。'},
   };
   const originalSource='https://commons.wikimedia.org/wiki/File:NLC892-411999026806-2147_本草綱目_第12冊.pdf';
-  let herb='丹参',mode='text',index=4,zoom=1.75,drag=null;
+  let herb='丹参',mode='text',index=4,zoom=1.75,viewMode='read',drag=null;
   const image=byId('scanImage'),viewport=byId('scanViewport'),canvas=byId('scanCanvas');
   let transitionId=0,turnLayer=null,turnAnimations=[],previousPage=null;
   const motionOff=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -86,11 +86,13 @@ const facsimile=(()=>{
     });
   }
   function fit(){
+    if(viewport.clientWidth<=28||viewport.clientHeight<=28)return;
     const ratio=(image.naturalWidth||2800)/(image.naturalHeight||2300);
     const base=Math.min(Math.max(viewport.clientWidth-28,100),Math.max(viewport.clientHeight-28,100)*ratio);
+    if(viewMode==='read')zoom=(viewport.clientWidth-28)*1.6/base;
     canvas.style.width=Math.round(base*zoom)+'px';
     byId('scanZoomLabel').textContent=Math.round(zoom*100)+'%';
-    byId('scanZoomOut').disabled=zoom<=1;byId('scanZoomIn').disabled=zoom>=3;
+    byId('scanZoomOut').disabled=zoom<=1;byId('scanZoomIn').disabled=zoom>=6;
   }
   function show(){
     const graph=mode==='figure',page=pages[index];
@@ -106,10 +108,10 @@ const facsimile=(()=>{
     byId('scanPrev').disabled=graph||index===0;byId('scanNext').disabled=graph||index===pages.length-1;
     byId('scanPagePicker').disabled=graph;byId('scanPagePicker').value=String(page.number);
     document.querySelectorAll('[data-scan-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.scanMode===mode)));
-    zoom=1.75;viewport.scrollTo(0,0);fit();
+    viewport.scrollTo(0,0);fit();
   }
-  function showHerb(name){if(!entries[name])return;herb=name;mode='text';index=pages.findIndex(page=>page.number===entries[name].start);byId('scanHerbName').textContent=name;byId('scanHerbPicker').value=name;show();}
-  function changeZoom(amount){clearTurn();zoom=Math.max(1,Math.min(3,zoom+amount));fit();}
+  function showHerb(name){if(!entries[name])return;herb=name;mode='text';viewMode='read';index=pages.findIndex(page=>page.number===entries[name].start);byId('scanHerbName').textContent=name;byId('scanHerbPicker').value=name;show();}
+  function changeZoom(amount){clearTurn();viewMode='manual';zoom=Math.max(1,Math.min(6,zoom+amount));fit();}
   byId('scanHerbPicker').innerHTML=BOOKS.map(book=>'<option>'+book.name+'</option>').join('');
   byId('scanPagePicker').innerHTML=pages.map(page=>'<option value="'+page.number+'">扫描第'+page.number+'页</option>').join('');
   byId('scanHerbPicker').onchange=event=>showHerb(event.target.value);
@@ -117,11 +119,13 @@ const facsimile=(()=>{
   byId('scanPrev').onclick=()=>{if(mode==='text'&&index>0){index--;show();}};
   byId('scanNext').onclick=()=>{if(mode==='text'&&index<pages.length-1){index++;show();}};
   byId('scanZoomIn').onclick=()=>changeZoom(.25);byId('scanZoomOut').onclick=()=>changeZoom(-.25);
-  byId('scanRead').onclick=()=>{clearTurn();zoom=1.75;fit();viewport.scrollTo(0,0);};
-  byId('scanFit').onclick=()=>{clearTurn();zoom=1;fit();viewport.scrollTo(0,0);};
+  byId('scanRead').onclick=()=>{clearTurn();viewMode='read';fit();viewport.scrollTo(0,0);};
+  byId('scanFit').onclick=()=>{clearTurn();viewMode='fit';zoom=1;fit();viewport.scrollTo(0,0);};
   byId('scanOpen').onclick=()=>openImage(image.src,image.alt);
   document.querySelectorAll('[data-scan-mode]').forEach(button=>button.onclick=()=>{mode=button.dataset.scanMode;show();});
   byId('scanFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await byId('scanReader').requestFullscreen();fit();}catch{openImage(image.src,image.alt);}};
+  if(typeof ResizeObserver==='function'){const sizeObserver=new ResizeObserver(fit);sizeObserver.observe(viewport);}
+  window.addEventListener('hashchange',()=>requestAnimationFrame(fit));
   image.onload=fit;window.addEventListener('resize',fit);document.addEventListener('fullscreenchange',()=>requestAnimationFrame(fit));
   viewport.addEventListener('pointerdown',event=>{if(zoom<=1||event.pointerType==='touch'||event.button!==0)return;event.preventDefault();drag={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(event.pointerId);viewport.classList.add('dragging');});
   viewport.addEventListener('pointermove',event=>{if(!drag)return;viewport.scrollLeft=drag.left+drag.x-event.clientX;viewport.scrollTop=drag.top+drag.y-event.clientY;});
