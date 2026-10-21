@@ -40,6 +40,8 @@ const facsimile=(()=>{
   };
   const originalSource='https://commons.wikimedia.org/wiki/File:NLC892-411999026806-2147_本草綱目_第12冊.pdf';
   let herb='丹参',mode='text',index=4,zoom=1.75,viewMode='read',drag=null;
+  try{const saved=JSON.parse(localStorage.getItem('bencao-reader-view-v1')||'null');if(saved&&['read','fit','manual'].includes(saved.mode)){viewMode=saved.mode;zoom=Math.max(1,Math.min(6,Number(saved.zoom)||1));}}catch{}
+  function saveView(){try{localStorage.setItem('bencao-reader-view-v1',JSON.stringify({mode:viewMode,zoom}));}catch{}}
   const image=byId('scanImage'),viewport=byId('scanViewport'),canvas=byId('scanCanvas');
   let transitionId=0,turnLayer=null,turnAnimations=[],previousPage=null;
   const motionOff=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -92,6 +94,8 @@ const facsimile=(()=>{
     if(viewMode==='read')zoom=(viewport.clientWidth-28)*1.6/base;
     canvas.style.width=Math.round(base*zoom)+'px';
     byId('scanZoomLabel').textContent=Math.round(zoom*100)+'%';
+    byId('scanRead').setAttribute('aria-pressed',String(viewMode==='read'));byId('scanFit').setAttribute('aria-pressed',String(viewMode==='fit'));
+    const hint=document.querySelector?.('.scan-reading-hint');if(hint)hint.textContent=(viewMode==='fit'?'当前为完整页':viewMode==='read'?'当前按窗口宽度放大阅读':'当前为手动缩放')+' · 翻页和切换条目保留显示设置，可拖动或滚动查看。';
     byId('scanZoomOut').disabled=zoom<=1;byId('scanZoomIn').disabled=zoom>=6;
   }
   function show(){
@@ -110,8 +114,8 @@ const facsimile=(()=>{
     document.querySelectorAll('[data-scan-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.scanMode===mode)));
     viewport.scrollTo(0,0);fit();
   }
-  function showHerb(name){if(!entries[name])return;herb=name;mode='text';viewMode='read';index=pages.findIndex(page=>page.number===entries[name].start);byId('scanHerbName').textContent=name;byId('scanHerbPicker').value=name;show();}
-  function changeZoom(amount){clearTurn();viewMode='manual';zoom=Math.max(1,Math.min(6,zoom+amount));fit();}
+  function showHerb(name){if(!entries[name])return;herb=name;mode='text';index=pages.findIndex(page=>page.number===entries[name].start);byId('scanHerbName').textContent=name;byId('scanHerbPicker').value=name;show();}
+  function changeZoom(amount){clearTurn();viewMode='manual';zoom=Math.max(1,Math.min(6,zoom+amount));fit();saveView();}
   byId('scanHerbPicker').innerHTML=BOOKS.map(book=>'<option>'+book.name+'</option>').join('');
   byId('scanPagePicker').innerHTML=pages.map(page=>'<option value="'+page.number+'">扫描第'+page.number+'页</option>').join('');
   byId('scanHerbPicker').onchange=event=>showHerb(event.target.value);
@@ -119,8 +123,8 @@ const facsimile=(()=>{
   byId('scanPrev').onclick=()=>{if(mode==='text'&&index>0){index--;show();}};
   byId('scanNext').onclick=()=>{if(mode==='text'&&index<pages.length-1){index++;show();}};
   byId('scanZoomIn').onclick=()=>changeZoom(.25);byId('scanZoomOut').onclick=()=>changeZoom(-.25);
-  byId('scanRead').onclick=()=>{clearTurn();viewMode='read';fit();viewport.scrollTo(0,0);};
-  byId('scanFit').onclick=()=>{clearTurn();viewMode='fit';zoom=1;fit();viewport.scrollTo(0,0);};
+  byId('scanRead').onclick=()=>{clearTurn();viewMode='read';fit();saveView();viewport.scrollTo(0,0);};
+  byId('scanFit').onclick=()=>{clearTurn();viewMode='fit';zoom=1;fit();saveView();viewport.scrollTo(0,0);};
   byId('scanOpen').onclick=()=>openImage(image.src,image.alt);
   document.querySelectorAll('[data-scan-mode]').forEach(button=>button.onclick=()=>{mode=button.dataset.scanMode;show();});
   byId('scanFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await byId('scanReader').requestFullscreen();fit();}catch{openImage(image.src,image.alt);}};
