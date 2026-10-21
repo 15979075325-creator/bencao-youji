@@ -171,7 +171,7 @@ async function downloadCard(){
     const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('image export failed');
     const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='本草观察笺-'+book.name+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
     $('saveFeedback').textContent='观察笺已生成，请查看浏览器下载。';
-  }catch{$('saveFeedback').textContent='当前浏览器未能导出图片，可先收藏观察笺；使用本地服务器打开后再试。';}
+  }catch{$('saveFeedback').textContent='当前浏览器未能导出图片，可以先收藏观察笺，或更换浏览器后重试。';}
   finally{button.disabled=false;button.textContent='保存为图片 ↓';}
 }
 
