@@ -24,7 +24,7 @@ function createServer({root=__dirname,ai=createAIService({root}),production=proc
   if(!['GET','HEAD'].includes(req.method)){res.writeHead(405);return res.end();}
   const relativeURL=pathname==='/'?'index.html':pathname.slice(1),file=path.resolve(root,relativeURL),relative=path.relative(root,file);
   if(relative.startsWith('..')||path.isAbsolute(relative)||(!publicFiles.has(relativeURL)&&!/^assets\/[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|webp)$/i.test(relativeURL))){res.writeHead(403);return res.end('Forbidden');}
-  fs.readFile(file,(err,content)=>{if(err){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:content);});
+  fs.readFile(file,(err,content)=>{if(err){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':relativeURL.startsWith('assets/')?'public, max-age=86400':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:content);});
  });
 }
 if(require.main===module){const port=Number(process.env.PORT||3000),host=process.env.HOST||(process.env.NODE_ENV==='production'?'0.0.0.0':'127.0.0.1'),server=createServer();server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`端口 ${port} 已被占用，请关闭原服务再启动。`:'本地服务启动失败。');process.exitCode=1;});server.listen(port,host,()=>console.log(`本草有迹服务已启动：${host}:${port}`));}
