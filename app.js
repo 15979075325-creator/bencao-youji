@@ -247,7 +247,6 @@ selectHerb(0);updateCount();
     document.querySelectorAll('.chapter-heading,.observation-board,.compare-board,.reading-board,.keep-board').forEach(element=>reveal.observe(element));
   }
   document.querySelectorAll('[data-part]').forEach(button=>button.addEventListener('click',()=>animate($('partNote'),[{opacity:.25,transform:'translateX(9px)'},{opacity:1,transform:'translateX(0)'}])));
-  $('scanImage').addEventListener('load',()=>animate($('scanImage'),[{opacity:.4,transform:'translateX(8px)'},{opacity:1,transform:'translateX(0)'}],{duration:380}));
   document.querySelectorAll('[data-form]').forEach(button=>button.addEventListener('click',()=>animate($('compareImage'),[{opacity:.3,transform:'scale(.98)'},{opacity:1,transform:'scale(1)'}])));
   document.querySelectorAll('[data-reading]').forEach(button=>button.addEventListener('click',()=>animate(document.querySelector('.reading-board'),[{opacity:.35},{opacity:1}],{duration:350})));
   $('noteForm').addEventListener('submit',()=>{if(selectedTraits().length)animate($('observationCard'),[{transform:'rotate(.6deg) scale(1)'},{transform:'rotate(-1deg) scale(1.025)',offset:.5},{transform:'rotate(.6deg) scale(1)'}],{duration:650});});

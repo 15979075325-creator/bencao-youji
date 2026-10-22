@@ -39,12 +39,12 @@ const facsimile=(()=>{
     '紫草':{start:84,end:86,location:'扫描第84页左叶开始“紫草”，第85页接续，第86页仍有相关内容。'},
   };
   const originalSource='https://commons.wikimedia.org/wiki/File:NLC892-411999026806-2147_本草綱目_第12冊.pdf';
-  let herb='丹参',mode='text',index=4,zoom=1.75,viewMode='read',drag=null;
-  try{const saved=JSON.parse(localStorage.getItem('bencao-reader-view-v1')||'null');if(saved&&['read','fit','manual'].includes(saved.mode)){viewMode=saved.mode;zoom=Math.max(1,Math.min(6,Number(saved.zoom)||1));}}catch{}
-  function saveView(){try{localStorage.setItem('bencao-reader-view-v1',JSON.stringify({mode:viewMode,zoom}));}catch{}}
+  let herb='丹参',mode='text',index=4,zoom=1.75,viewMode='read',readerAction='turn',drag=null;
+  try{const saved=JSON.parse(localStorage.getItem('bencao-reader-view-v1')||'null');if(saved&&['read','fit','manual'].includes(saved.mode)){viewMode=saved.mode;if(['turn','pan'].includes(saved.action))readerAction=saved.action;zoom=Math.max(1,Math.min(6,Number(saved.zoom)||1));}}catch{}
+  function saveView(){try{localStorage.setItem('bencao-reader-view-v1',JSON.stringify({mode:viewMode,zoom,action:readerAction}));}catch{}}
   const image=byId('scanImage'),viewport=byId('scanViewport'),canvas=byId('scanCanvas');
   const decodeCache=new Map();let fullSource='';
-  const readingSource=src=>src.replace('assets/','assets/scan-fast-').replace(/\.jpg$/,'.webp');
+  const readingSource=src=>src.startsWith('data:')?src:src.replace('assets/','assets/scan-fast-').replace(/\.jpg$/,'.webp')+'?v=2';
   function loadReading(src){
     if(decodeCache.has(src)){const cached=decodeCache.get(src);decodeCache.delete(src);decodeCache.set(src,cached);return cached;}
     const next=new Image();next.decoding='async';next.src=src;
@@ -53,14 +53,14 @@ const facsimile=(()=>{
     while(decodeCache.size>4)decodeCache.delete(decodeCache.keys().next().value);
     return promise;
   }
-  function warmNeighbors(){if(mode!=='text')return;for(const offset of [1,-1]){const page=pages[index+offset];if(page)loadReading(readingSource(page.image)).catch(()=>{});}}
+  function warmNeighbors(){if(mode!=='text'||viewport.clientWidth<=28)return;for(const offset of [1,-1]){const page=pages[index+offset];if(page)loadReading(readingSource(page.image)).catch(()=>{});}}
   function updateMouseControls(){for(const [id,disabled]of [['scanMousePrev',mode!=='text'||index===0],['scanMouseNext',mode!=='text'||index===pages.length-1]]){const b=byId(id);b.disabled=disabled;b.hidden=mode!=='text';}}
   let transitionId=0,turnLayer=null,turnAnimations=[],previousPage=null;
   const motionOff=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
   function clearTurn(){
     turnAnimations.forEach(animation=>animation.cancel());turnAnimations=[];
     if(turnLayer){turnLayer.remove();turnLayer=null;}
-    canvas.classList.remove('is-turning');viewport.removeAttribute('aria-busy');
+    canvas.classList.remove('is-turning');viewport.removeAttribute('aria-busy');byId('scanLoading').hidden=true;
   }
   function presentPage(src,alt,direction){
     const ticket=++transitionId;
@@ -68,7 +68,7 @@ const facsimile=(()=>{
     if(image.getAttribute('src')===src&&image.complete&&image.naturalWidth){image.alt=alt;fit();warmNeighbors();return;}
     const oldSrc=image.getAttribute('src'),oldAlt=image.alt;
     const canTurn=oldSrc&&image.complete&&image.naturalWidth&&!motionOff()&&typeof image.animate==='function';
-    viewport.setAttribute('aria-busy','true');
+    viewport.setAttribute('aria-busy','true');byId('scanLoading').textContent='正在载入书页…';byId('scanLoading').hidden=false;
     loadReading(src).then(()=>{
       if(ticket!==transitionId)return;
       if(canTurn){
@@ -80,10 +80,10 @@ const facsimile=(()=>{
         }
         canvas.append(layer);turnLayer=layer;canvas.classList.add('is-turning');
       }
-      image.src=src;image.alt=alt;fit();viewport.removeAttribute('aria-busy');warmNeighbors();
+      image.src=src;image.alt=alt;fit();viewport.removeAttribute('aria-busy');byId('scanLoading').hidden=true;warmNeighbors();
       if(!canTurn)return;
       const layer=turnLayer,leaf=layer.querySelector(direction<0?'.turn-left':'.turn-right'),rest=layer.querySelector(direction<0?'.turn-right':'.turn-left');
-      const duration=420,sign=direction<0?1:-1;
+      const duration=260,sign=direction<0?1:-1;
       turnAnimations=[
         leaf.animate([{transform:'rotateY(0deg)',opacity:1},{transform:'rotateY('+sign*52+'deg)',opacity:.96,offset:.5},{transform:'rotateY('+sign*126+'deg) translateX('+sign*8+'%)',opacity:0}],{duration,easing:'cubic-bezier(.22,.65,.25,1)',fill:'both'}),
         rest.animate([{opacity:1},{opacity:.6,offset:.35},{opacity:0}],{duration:duration*.78,easing:'ease-in-out',fill:'both'}),
@@ -105,8 +105,9 @@ const facsimile=(()=>{
     canvas.style.width=Math.round(base*zoom)+'px';
     byId('scanZoomLabel').textContent=Math.round(zoom*100)+'%';
     byId('scanRead').setAttribute('aria-pressed',String(viewMode==='read'));byId('scanFit').setAttribute('aria-pressed',String(viewMode==='fit'));
-    viewport.style.touchAction=viewMode==='fit'&&mode==='text'?'pan-y':'auto';
-    const hint=document.querySelector?.('.scan-reading-hint');if(hint)hint.textContent=(viewMode==='fit'?'当前为完整页':viewMode==='read'?'当前按窗口宽度放大阅读':'当前为手动缩放')+(mode==='figure'?' · 图卷可放大查看':' · 点两侧箭头翻页；完整页可点击左右半页、左右拖动翻页；放大后中间拖动移图')+' · 保留显示设置。';
+    viewport.style.touchAction=readerAction==='turn'&&mode==='text'?'pan-y':'auto';
+    byId('scanDragTurn').setAttribute('aria-pressed',String(readerAction==='turn'));byId('scanDragPan').setAttribute('aria-pressed',String(readerAction==='pan'));image.draggable=false;
+    const hint=document.querySelector?.('.scan-reading-hint');if(hint)hint.textContent=(viewMode==='fit'?'当前为完整页':viewMode==='read'?'当前按窗口宽度放大阅读':'当前为手动缩放')+(mode==='figure'?' · 图卷可放大查看':readerAction==='turn'?' · 按住书页左右拖动即可翻页；切到“拖动移图”可移动放大画面':' · 当前拖动用于移图；点“拖动翻页”恢复整页翻页')+' · 保留显示设置。';
     byId('scanZoomOut').disabled=zoom<=1;byId('scanZoomIn').disabled=zoom>=6;
   }
   function show(){
@@ -140,34 +141,37 @@ const facsimile=(()=>{
   document.querySelectorAll('[data-scan-mode]').forEach(button=>button.onclick=()=>{mode=button.dataset.scanMode;show();});
   byId('scanFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await byId('scanReader').requestFullscreen();fit();}catch{openImage(image.src,image.alt);}};
   if(typeof ResizeObserver==='function'){const sizeObserver=new ResizeObserver(fit);sizeObserver.observe(viewport);}
-  window.addEventListener('hashchange',()=>requestAnimationFrame(fit));
+  window.addEventListener('hashchange',()=>requestAnimationFrame(()=>{fit();warmNeighbors();}));
   image.onload=fit;window.addEventListener('resize',fit);document.addEventListener('fullscreenchange',()=>requestAnimationFrame(fit));
+  byId('scanDragTurn').onclick=()=>{readerAction='turn';fit();saveView();};byId('scanDragPan').onclick=()=>{readerAction='pan';fit();saveView();};
+  image.addEventListener('dragstart',e=>e.preventDefault());
   byId('scanMousePrev').onclick=()=>byId('scanPrev').onclick();byId('scanMouseNext').onclick=()=>byId('scanNext').onclick();
   function flip(direction){if(mode!=='text')return;const next=index+direction;if(next<0||next>=pages.length)return;index=next;show();}
   viewport.addEventListener('pointerdown',event=>{
     if(event.button!==0||event.isPrimary===false)return;
     const rect=viewport.getBoundingClientRect(),x=event.clientX-rect.left;
-    const turn=mode==='text'&&(viewMode==='fit'||x<64||x>rect.width-64);
+    const turn=mode==='text'&&readerAction==='turn';
     if(event.pointerType==='touch'&&!turn)return;
     if(event.pointerType!=='touch')event.preventDefault();
     drag={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,turn,width:rect.width,start:x,id:event.pointerId};
-    viewport.setPointerCapture(event.pointerId);viewport.classList.add('dragging');
+    try{viewport.setPointerCapture(event.pointerId);}catch{}viewport.classList.add('dragging');
   });
   viewport.addEventListener('pointermove',event=>{
     if(!drag||drag.id!==event.pointerId)return;
     const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
-    if(drag.turn){if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy))canvas.style.transform='translateX('+Math.max(-22,Math.min(22,dx*.15))+'px)';}
+    if(drag.turn){if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy))canvas.style.transform='translateX('+Math.max(-65,Math.min(65,dx*.35))+'px)';}
     else{viewport.scrollLeft=drag.left-dx;viewport.scrollTop=drag.top-dy;}
   });
   function endDrag(event,cancel=false){
     if(!drag||drag.id!==event.pointerId)return;
     const gesture=drag;drag=null;canvas.style.transform='';viewport.classList.remove('dragging');
     if(!cancel&&gesture.turn){const dx=event.clientX-gesture.x,dy=event.clientY-gesture.y;
-      if(Math.abs(dx)>=45&&Math.abs(dx)>Math.abs(dy)*1.2)flip(dx<0?1:-1);
-      else if(Math.abs(dx)<8&&Math.abs(dy)<8)flip(gesture.start>gesture.width/2?1:-1);
+      if(Math.abs(dx)>=28&&Math.abs(dx)>Math.abs(dy)*1.2)flip(dx<0?1:-1);
+      else if(viewMode==='fit'&&Math.abs(dx)<8&&Math.abs(dy)<8)flip(gesture.start>gesture.width/2?1:-1);
     }
   }
   viewport.addEventListener('pointerup',event=>endDrag(event));viewport.addEventListener('pointercancel',event=>endDrag(event,true));
+  window.addEventListener('pointerup',event=>endDrag(event));window.addEventListener('pointercancel',event=>endDrag(event,true));
   viewport.addEventListener('keydown',event=>{if(event.key==='ArrowRight'){event.preventDefault();byId('scanNext').click();}if(event.key==='ArrowLeft'){event.preventDefault();byId('scanPrev').click();}if(event.key==='+'||event.key==='='){event.preventDefault();changeZoom(.25);}if(event.key==='-'){event.preventDefault();changeZoom(-.25);}});
   return {showHerb};
 })();
